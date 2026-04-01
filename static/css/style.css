@@ -13,13 +13,19 @@ body {
 /* ===== ヘッダー ===== */
 header {
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  gap: 8px;
   padding: 10px 16px;
   background: #16213e;
   border-radius: 10px;
   margin-bottom: 14px;
   box-shadow: 0 2px 8px rgba(0,0,0,.4);
+}
+.header-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 header h1 {
   font-size: 1.25rem;
@@ -27,11 +33,45 @@ header h1 {
   flex: 1;
 }
 
-/* ===== グローバルツールバー ===== */
+/* ===== ツールバー ===== */
 #toolbar {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+/* ===== 全パネル一括設定 ===== */
+#global-controls {
+  background: rgba(15,52,96,.45);
+  border: 1px solid #1a4a8a;
+  border-radius: 8px;
+  padding: 5px 12px;
+  gap: 10px;
+}
+.global-label {
+  font-size: .75rem;
+  color: #e2b96f;
+  font-weight: bold;
+  white-space: nowrap;
+}
+#global-controls label {
+  font-size: .75rem;
+  color: #aaa;
+  white-space: nowrap;
+}
+#global-controls select {
+  background: #0f3460;
+  color: #e0e0e0;
+  border: 1px solid #1a4a8a;
+  border-radius: 5px;
+  padding: 3px 6px;
+  font-size: .78rem;
+  cursor: pointer;
+  margin-left: 4px;
+}
+#global-controls select:focus { outline: 1px solid #e94560; }
+#global-controls .speed-group input[type=range] {
+  width: 80px;
 }
 
 /* ===== パネルグリッド ===== */

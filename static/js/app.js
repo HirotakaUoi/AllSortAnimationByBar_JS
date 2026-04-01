@@ -16,9 +16,12 @@ let panelSeq    = 0;     // パネル ID 採番
 // ===== 起動 ========================================================
 window.addEventListener("DOMContentLoaded", async () => {
   await loadMeta();
-  document.getElementById("btn-add-panel").addEventListener("click", addPanel);
-  document.getElementById("btn-start-all").addEventListener("click", startAll);
-  document.getElementById("btn-stop-all").addEventListener("click",  stopAll);
+  _setupGlobalControls();
+  document.getElementById("btn-add-panel") .addEventListener("click", addPanel);
+  document.getElementById("btn-start-all") .addEventListener("click", startAll);
+  document.getElementById("btn-stop-all")  .addEventListener("click", stopAll);
+  document.getElementById("btn-sync-size") .addEventListener("click", syncSize);
+  document.getElementById("btn-apply-global").addEventListener("click", applyGlobalToAll);
   addPanel(); // 初期パネルを1つ表示
 });
 
@@ -31,6 +34,65 @@ async function loadMeta() {
   algorithms = await alRes.json();
   dataSizes  = await dsRes.json();
   conditions = await cRes.json();
+}
+
+// ===== 全パネル一括設定 ============================================
+
+function _setupGlobalControls() {
+  // セレクトを動的生成
+  const gSize = document.getElementById("global-size");
+  dataSizes.forEach(s => gSize.appendChild(new Option(String(s), s)));
+  gSize.value = 32;
+
+  const gCond = document.getElementById("global-cond");
+  conditions.forEach(c => gCond.appendChild(new Option(c.name, c.id)));
+
+  // 速度スライダーのラベル更新
+  const gSpeed    = document.getElementById("global-speed");
+  const gSpeedVal = document.getElementById("global-speed-val");
+  gSpeed.addEventListener("input", () => {
+    const v    = Number(gSpeed.value);
+    const mult = Math.round(v / 80 * 10) / 10;
+    gSpeedVal.textContent = `×${mult.toFixed(1)}`;
+  });
+}
+
+/** 全パネルへグローバル設定を適用（ボタン押下時） */
+function applyGlobalToAll() {
+  const size      = document.getElementById("global-size").value;
+  const cond      = document.getElementById("global-cond").value;
+  const speedSlider = Number(document.getElementById("global-speed").value);
+
+  document.querySelectorAll(".panel").forEach(el => {
+    const panel = el._panel;
+    if (!panel) return;
+
+    // 速度は実行中でも変更可
+    el.querySelector(".rng-speed").value = speedSlider;
+    panel._applySpeed(speedSlider);
+
+    // データ数・初期状態は非実行中のみ
+    if (!panel.isRunning) {
+      el.querySelector(".sel-size").value = size;
+      el.querySelector(".sel-cond").value = cond;
+      panel._drawPreview();
+    }
+  });
+}
+
+// ===== サイズ統一 ==================================================
+
+/** 1番上のパネルサイズに全パネルを揃える */
+function syncSize() {
+  const panels = [...document.querySelectorAll(".panel")];
+  if (panels.length < 2) return;
+  const first = panels[0];
+  const w = first.offsetWidth;
+  const h = first.offsetHeight;
+  panels.slice(1).forEach(el => {
+    el.style.width  = w + "px";
+    el.style.height = h + "px";
+  });
 }
 
 // ===== パネル追加 ==================================================
@@ -49,8 +111,8 @@ function startAll() {
 }
 function stopAll() {
   document.querySelectorAll(".panel").forEach((el) => {
-    const el2 = el._panel;
-    if (el2 && el2.isRunning) el2.stop();
+    const p = el._panel;
+    if (p && p.isRunning) p.stop();
   });
 }
 
@@ -81,7 +143,8 @@ class SortPanel {
     this.el = el;
     this._bind();
     this._populateSelects();
-    this._onResize(); // 初期キャンバスサイズ
+    // DOM レイアウト確定後にプレビュー描画
+    requestAnimationFrame(() => this._drawPreview());
     return el;
   }
 
@@ -153,13 +216,24 @@ class SortPanel {
       const opt = new Option(String(s), s);
       selSize.appendChild(opt);
     });
-    selSize.value = 32;
+    // グローバル設定の現在値を引き継ぐ
+    const globalSize = document.getElementById("global-size")?.value;
+    selSize.value = globalSize || 32;
 
     const selCond = this.el.querySelector(".sel-cond");
     conditions.forEach(c => {
       const opt = new Option(c.name, c.id);
       selCond.appendChild(opt);
     });
+    const globalCond = document.getElementById("global-cond")?.value;
+    if (globalCond) selCond.value = globalCond;
+
+    // 速度もグローバルと同期
+    const globalSpeed = document.getElementById("global-speed")?.value;
+    if (globalSpeed) {
+      this.el.querySelector(".rng-speed").value = globalSpeed;
+      this._applySpeed(Number(globalSpeed));
+    }
   }
 
   // ── イベントバインド ─────────────────────────────────────────
@@ -176,31 +250,104 @@ class SortPanel {
       this._applySpeed(Number(ev.target.value));
     });
 
+    // パラメタ変更時にプレビューを更新（実行中は無視）
+    q(".sel-algo").addEventListener("change", () => { if (!this.isRunning) this._drawPreview(); });
+    q(".sel-size").addEventListener("change", () => { if (!this.isRunning) this._drawPreview(); });
+    q(".sel-cond").addEventListener("change", () => { if (!this.isRunning) this._drawPreview(); });
+
     // パネル全体 & キャンバスラッパー両方を監視（resize: both に対応）
     const ro = new ResizeObserver(() => this._onResize());
     ro.observe(this.el);
     ro.observe(q(".canvas-wrapper"));
   }
 
+  // ── リサイズハンドラ ─────────────────────────────────────────
   _onResize() {
     const wrapper = this.el.querySelector(".canvas-wrapper");
     const canvas  = this.el.querySelector(".sort-canvas");
     const w = wrapper.clientWidth;
     const h = wrapper.clientHeight;
     if (w <= 0 || h <= 0) return;
-    // canvas の論理サイズをラッパーの実サイズに合わせる
-    canvas.width  = w;
-    canvas.height = h;
-    // SortCanvas も新サイズで再生成してフレームを再描画
-    if (this.sortCanvas) {
+
+    // ★ バグ修正: 同値でも canvas.width = x は必ずキャンバスをクリアするため
+    //    実際にサイズが変わった時だけ代入する
+    const sizeChanged = (canvas.width !== w || canvas.height !== h);
+    if (sizeChanged) {
+      canvas.width  = w;
+      canvas.height = h;
+    } else {
+      // サイズ未変更 → 何も消えていないので再描画不要
+      return;
+    }
+
+    // サイズ変更後に再描画
+    if (this.isRunning && this.sortCanvas && this._lastFrame) {
+      // アニメーション中: 最後のフレームを再描画
       this.sortCanvas.canvas   = canvas;
       this.sortCanvas.ctx      = canvas.getContext("2d");
       this.sortCanvas.numItems = this.numItems;
       this.sortCanvas.dataMax  = this.dataMax;
-    }
-    if (this.sortCanvas && this._lastFrame) {
       this.sortCanvas.draw(this._lastFrame);
+    } else if (!this.isRunning) {
+      // 待機中・リセット後: プレビューを再描画
+      this._drawPreviewOnCanvas(canvas, w, h);
     }
+  }
+
+  // ── プレビューデータ生成（クライアントサイド） ──────────────
+  _generatePreviewData() {
+    const numItems  = Number(this.el.querySelector(".sel-size").value);
+    const condition = Number(this.el.querySelector(".sel-cond").value);
+    const dataMax   = numItems > 150 ? 300 : 100;
+
+    let data = Array.from({ length: numItems },
+                          () => Math.floor(Math.random() * dataMax) + 1);
+
+    if (condition === 1) {                       // 昇順
+      data.sort((a, b) => a - b);
+    } else if (condition === 2) {                // 降順
+      data.sort((a, b) => b - a);
+    } else if (condition === 3) {                // ほぼ昇順
+      data.sort((a, b) => a - b);
+      const swaps = Math.max(1, Math.floor(numItems / 10));
+      for (let k = 0; k < swaps; k++) {
+        const i = Math.floor(Math.random() * numItems);
+        const j = Math.floor(Math.random() * numItems);
+        [data[i], data[j]] = [data[j], data[i]];
+      }
+    } else if (condition === 4) {                // ステップ値
+      const steps = Math.max(2, Math.floor(Math.sqrt(numItems)));
+      const pool  = Array.from({ length: steps }, (_, i) =>
+        Math.floor(Math.random() * (dataMax / steps)) + i * Math.floor(dataMax / steps) + 1
+      );
+      data = Array.from({ length: numItems },
+                        () => pool[Math.floor(Math.random() * pool.length)]);
+    }
+
+    return { data, color: new Array(numItems).fill("b"), dataMax, numItems };
+  }
+
+  // ── プレビューを描画（canvas サイズも設定） ──────────────────
+  _drawPreview() {
+    const wrapper = this.el.querySelector(".canvas-wrapper");
+    const canvas  = this.el.querySelector(".sort-canvas");
+    const w = wrapper.clientWidth;
+    const h = wrapper.clientHeight || Math.round(w * 0.45);
+    if (w <= 0) return;
+    // ★ バグ修正: サイズが変わった時だけ代入（同値代入もクリアになるため）
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width  = w;
+      canvas.height = h || Math.round(w * 0.45);
+    }
+    this._drawPreviewOnCanvas(canvas, canvas.width, canvas.height);
+  }
+
+  _drawPreviewOnCanvas(canvas, w, h) {
+    const pd = this._generatePreviewData();
+    this._previewCache = pd;
+    const sc = new SortCanvas(canvas, pd.numItems, pd.dataMax);
+    sc.draw({ data: pd.data, color: pd.color,
+              arrows: [], texts: [], lines: [], bars: [], finished: false });
   }
 
   // ── スピード変換: スライダー(1-200) → 秒/フレーム ──────────
@@ -222,10 +369,10 @@ class SortPanel {
   async start() {
     if (this.isRunning) return;
 
-    const algoId = Number(this.el.querySelector(".sel-algo").value);
+    const algoId  = Number(this.el.querySelector(".sel-algo").value);
     const numItems = Number(this.el.querySelector(".sel-size").value);
-    const condId = Number(this.el.querySelector(".sel-cond").value);
-    const speed  = this._currentSpeed();
+    const condId  = Number(this.el.querySelector(".sel-cond").value);
+    const speed   = this._currentSpeed();
 
     // サーバーにセッション開始を要求
     let info;
@@ -338,9 +485,6 @@ class SortPanel {
   // ── リセット ─────────────────────────────────────────────────
   reset() {
     if (this.isRunning) this.stop();
-    const canvas = this.el.querySelector(".sort-canvas");
-    const ctx    = canvas.getContext("2d");
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
     this.el.querySelector(".text-overlay").textContent = "（開始ボタンを押してください）";
     this.el.querySelector(".status-frames").textContent = "フレーム: 0";
     this.el.classList.remove("finished");
@@ -349,6 +493,8 @@ class SortPanel {
     this.sortCanvas  = null;
     this._lastFrame  = null;
     this._frameCount = 0;
+    // リセット後もデータをプレビュー表示
+    this._drawPreview();
   }
 
   // ── パネル削除 ───────────────────────────────────────────────
