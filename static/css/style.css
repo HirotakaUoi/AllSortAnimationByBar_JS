@@ -49,16 +49,39 @@ header h1 {
   border-radius: 12px;
   padding: 12px;
   width: 520px;
-  min-width: 320px;
+  min-width: 280px;
+  min-height: 340px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
   box-shadow: 0 4px 16px rgba(0,0,0,.5);
   transition: border-color .2s;
+  /* ── リサイズ ── */
+  resize: both;
+  overflow: hidden;
 }
-.panel.running { border-color: #e94560; }
+.panel.running  { border-color: #e94560; }
 .panel.finished { border-color: #44aa44; }
+
+/* リサイズハンドルを目立たせる */
+.panel::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 14px;
+  height: 14px;
+  background:
+    linear-gradient(135deg,
+      transparent 40%, #4472C4 40%, #4472C4 55%, transparent 55%,
+      transparent 65%, #4472C4 65%, #4472C4 80%, transparent 80%);
+  pointer-events: none;
+  border-radius: 0 0 10px 0;
+  opacity: .6;
+}
+/* absolute が効くよう position を付与 */
+.panel { position: relative; }
 
 /* パネルタイトルバー */
 .panel-header {
@@ -163,11 +186,13 @@ header h1 {
   background: #0a0a1a;
   border-radius: 8px;
   overflow: hidden;
+  flex: 1;          /* 縦方向の余白をすべて使う */
+  min-height: 120px;
 }
 .sort-canvas {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;     /* ラッパーいっぱいに広がる */
 }
 
 /* テキストオーバーレイ */

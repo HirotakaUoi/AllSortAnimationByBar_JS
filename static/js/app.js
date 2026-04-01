@@ -176,19 +176,28 @@ class SortPanel {
       this._applySpeed(Number(ev.target.value));
     });
 
-    // キャンバスをリサイズ追跡
-    new ResizeObserver(() => this._onResize()).observe(q(".canvas-wrapper"));
+    // パネル全体 & キャンバスラッパー両方を監視（resize: both に対応）
+    const ro = new ResizeObserver(() => this._onResize());
+    ro.observe(this.el);
+    ro.observe(q(".canvas-wrapper"));
   }
 
   _onResize() {
     const wrapper = this.el.querySelector(".canvas-wrapper");
     const canvas  = this.el.querySelector(".sort-canvas");
     const w = wrapper.clientWidth;
-    if (w <= 0) return;
-    const h = Math.round(w * 0.45);
+    const h = wrapper.clientHeight;
+    if (w <= 0 || h <= 0) return;
+    // canvas の論理サイズをラッパーの実サイズに合わせる
     canvas.width  = w;
     canvas.height = h;
-    // 再描画（フレームキャッシュがあれば）
+    // SortCanvas も新サイズで再生成してフレームを再描画
+    if (this.sortCanvas) {
+      this.sortCanvas.canvas   = canvas;
+      this.sortCanvas.ctx      = canvas.getContext("2d");
+      this.sortCanvas.numItems = this.numItems;
+      this.sortCanvas.dataMax  = this.dataMax;
+    }
     if (this.sortCanvas && this._lastFrame) {
       this.sortCanvas.draw(this._lastFrame);
     }
