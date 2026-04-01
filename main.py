@@ -159,5 +159,13 @@ async def ws_endpoint(ws: WebSocket, session_id: str):
 # ---------------------------------------------------------------------------
 # 静的ファイルサーブ (最後に登録)
 # ---------------------------------------------------------------------------
+# NOTE: "/" への Mount は Render などのプロキシ環境で WebSocket を横取りする
+#       ため、静的アセットは "/static" に置き、ルートは明示的に返す。
 
-app.mount("/", StaticFiles(directory=BASE_DIR / "static", html=True), name="static")
+from fastapi.responses import FileResponse
+
+@app.get("/")
+async def root():
+    return FileResponse(BASE_DIR / "static" / "index.html")
+
+app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
