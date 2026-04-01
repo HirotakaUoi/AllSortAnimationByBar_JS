@@ -5,7 +5,10 @@ main.py  –  FastAPI + WebSocket バックエンド
 
 import asyncio
 import uuid
+from pathlib import Path
 from typing import Optional
+
+BASE_DIR = Path(__file__).parent
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
@@ -157,4 +160,4 @@ async def ws_endpoint(ws: WebSocket, session_id: str):
 # 静的ファイルサーブ (最後に登録)
 # ---------------------------------------------------------------------------
 
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+app.mount("/", StaticFiles(directory=BASE_DIR / "static", html=True), name="static")
