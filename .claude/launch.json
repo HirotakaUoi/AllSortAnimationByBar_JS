@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "sort-animation",
+      "runtimeExecutable": "/Volumes/Dropbox/Dropbox/MyProjects/Clude/AA by Python for CC/AllSortAnimationByBar_JS/start_server.sh",
+      "runtimeArgs": [],
+      "port": 8000
+    }
+  ]
+}
