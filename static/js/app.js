@@ -82,7 +82,7 @@ function applyGlobalToAll() {
 
 // ===== サイズ統一 ==================================================
 
-/** 1番上のパネルサイズに全パネルを揃える */
+/** 左上のパネルサイズに全パネルを揃える */
 function syncSize() {
   const panels = [...document.querySelectorAll(".panel")];
   if (panels.length < 2) return;
