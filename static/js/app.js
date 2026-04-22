@@ -108,16 +108,22 @@ function applyGlobalToAll() {
 
 // ===== サイズ統一 ==================================================
 
-/** 左上のパネルサイズに全パネルを揃える */
+/** 最後にクリックしたパネル（.front）のサイズに全パネルを揃える */
 function syncSize() {
   const panels = [...document.querySelectorAll(".panel")];
   if (panels.length < 2) return;
-  const first = panels[0];
-  const w = first.offsetWidth;
-  const h = first.offsetHeight;
-  panels.slice(1).forEach(el => {
-    el.style.width  = w + "px";
-    el.style.height = h + "px";
+  const front =
+    document.querySelector(".panel.front") ||
+    panels.reduce((a, b) =>
+      (parseInt(b.style.zIndex) || 1) > (parseInt(a.style.zIndex) || 1) ? b : a
+    );
+  const w = front.offsetWidth;
+  const h = front.offsetHeight;
+  panels.forEach(el => {
+    if (el !== front) {
+      el.style.width  = w + "px";
+      el.style.height = h + "px";
+    }
   });
 }
 
@@ -265,6 +271,11 @@ class SortPanel {
   // ── イベントバインド ─────────────────────────────────────────
   _bind() {
     const q = (sel) => this.el.querySelector(sel);
+
+    this.el.addEventListener("mousedown", () => {
+      document.querySelectorAll(".panel").forEach(p => p.classList.remove("front"));
+      this.el.classList.add("front");
+    });
 
     q(".panel-close").addEventListener("click", () => this.destroy());
     q(".btn-start")  .addEventListener("click", () => this.start());
