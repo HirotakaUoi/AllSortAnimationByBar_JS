@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ソートアルゴリズム アニメーション</title>
-  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/css/style.css?v=1">
 </head>
 <body>
 
@@ -18,6 +18,12 @@
         <button id="btn-start-all"  class="btn btn-success">▶▶ 全開始</button>
         <button id="btn-stop-all"   class="btn btn-danger">⏹ 全停止</button>
         <button id="btn-sync-size"  class="btn btn-secondary" title="左上のパネルサイズに全パネルを合わせる">⊞ サイズ統一</button>
+        <div id="theme-controls">
+          <button class="btn btn-secondary theme-btn theme-active" data-th="dark"     title="ダーク">🌙</button>
+          <button class="btn btn-secondary theme-btn"              data-th="bright"   title="明るめ">☀</button>
+          <button class="btn btn-secondary theme-btn"              data-th="hc"       title="コントラスト強め (暗め)">◑</button>
+          <button class="btn btn-secondary theme-btn"              data-th="hcbright" title="コントラスト強め (明るめ)">◐</button>
+        </div>
       </div>
     </div>
     <!-- 2行目: 全パネル一括設定 -->
@@ -42,8 +48,8 @@
   <main id="panels-container"></main>
 
   <!-- ===== スクリプト ===== -->
-  <script src="/static/js/canvas.js"></script>
-  <script src="/static/js/ws_client.js"></script>
-  <script src="/static/js/app.js"></script>
+  <script src="/static/js/canvas.js?v=1"></script>
+  <script src="/static/js/ws_client.js?v=1"></script>
+  <script src="/static/js/app.js?v=1"></script>
 </body>
 </html>

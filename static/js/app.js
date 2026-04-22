@@ -17,6 +17,7 @@ let panelSeq    = 0;     // パネル ID 採番
 window.addEventListener("DOMContentLoaded", async () => {
   await loadMeta();
   _setupGlobalControls();
+  _setupThemeControls();
   document.getElementById("btn-add-panel") .addEventListener("click", addPanel);
   document.getElementById("btn-start-all") .addEventListener("click", startAll);
   document.getElementById("btn-stop-all")  .addEventListener("click", stopAll);
@@ -34,6 +35,31 @@ async function loadMeta() {
   algorithms = await alRes.json();
   dataSizes  = await dsRes.json();
   conditions = await cRes.json();
+}
+
+// ===== テーマ ======================================================
+
+function _setupThemeControls() {
+  document.querySelectorAll(".theme-btn").forEach(btn => {
+    btn.addEventListener("click", () => _applyTheme(btn.dataset.th));
+  });
+}
+
+function _applyTheme(key) {
+  document.body.dataset.theme = key;
+  setCanvasTheme(key);
+  document.querySelectorAll(".theme-btn").forEach(b => {
+    b.classList.toggle("theme-active", b.dataset.th === key);
+  });
+  document.querySelectorAll(".panel").forEach(el => {
+    const panel = el._panel;
+    if (!panel) return;
+    if (panel.isRunning && panel.sortCanvas && panel._lastFrame) {
+      panel.sortCanvas.draw(panel._lastFrame);
+    } else {
+      panel._drawPreview();
+    }
+  });
 }
 
 // ===== 全パネル一括設定 ============================================
